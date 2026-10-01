@@ -1,0 +1,28 @@
+name: Ошибка / Bug report
+description: Проблема с приложением или конкретной прошивкой Quest
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Версия Toolbox и Windows
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Модель Quest и версия сборки
+      description: Не указывайте серийный номер или IP.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги и результат
+      description: Что сделали, что ожидали, что произошло?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Проверенный фрагмент журнала
+      description: Удалите личные данные, токены, адреса и серийные номера перед отправкой.

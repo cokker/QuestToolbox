@@ -1,0 +1,87 @@
+name: Windows build
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a preview release after all checks pass
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest pyinstaller
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+      - name: Build Windows app
+        run: python -m PyInstaller --noconfirm --clean --windowed --onedir --name QuestToolbox --icon docs/icon.ico --add-data "licenses;licenses" main.py
+      - name: Launch packaged EXE and verify all pages
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'dist/QuestToolbox/QuestToolbox.exe').Path
+          $report = Join-Path $env:GITHUB_WORKSPACE 'smoke-output'
+          $appProcess = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', "`"$report`"") -PassThru
+          if (-not $appProcess.WaitForExit(60000)) {
+            $appProcess.Kill()
+            throw 'Packaged application startup timed out'
+          }
+          if ($appProcess.ExitCode -ne 0) { throw "Packaged app exited with $($appProcess.ExitCode)" }
+          $result = Get-Content (Join-Path $report 'smoke-result.json') -Raw | ConvertFrom-Json
+          if (-not $result.ok) { throw $result.error }
+          $result | ConvertTo-Json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-startup-proof
+          path: smoke-output
+          if-no-files-found: ignore
+      - name: Package
+        shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md -Destination dist/QuestToolbox
+          Copy-Item licenses -Destination dist/QuestToolbox -Recurse
+          Compress-Archive -Path dist/QuestToolbox -DestinationPath dist/QuestToolbox-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuestToolbox-Windows-x64
+          path: dist/QuestToolbox-Windows-x64.zip
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: QuestToolbox-Windows-x64
+      - name: Publish checked preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_REF: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          VERSION=$(python -c 'from quest_toolbox import __version__; print(__version__)')
+          RELEASE_TAG="v$VERSION"
+          if [ "$REF_TYPE" = tag ] && [ "$RELEASE_REF" != "$RELEASE_TAG" ]; then
+            echo 'Tag and application version do not match'; exit 1
+          fi
+          gh release create "$RELEASE_TAG" QuestToolbox-Windows-x64.zip --target "$RELEASE_SHA" --title "Quest Toolbox $RELEASE_TAG Preview" --notes-file RELEASE_NOTES.md --prerelease
