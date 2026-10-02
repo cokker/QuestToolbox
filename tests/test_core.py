@@ -1,3 +1,4 @@
+import os
 import threading
 import zipfile
 from pathlib import Path
@@ -190,3 +191,37 @@ def test_directory_probe_rejects_unreadable_before_listing():
     with pytest.raises(ToolboxError): adb.list_files('/sdcard/Android/data')
     assert len(calls)==1
     assert 'test -d' in calls[0][2]
+
+
+def test_official_tool_update_replaces_old_copy(monkeypatch, tmp_path):
+    import io
+    import quest_toolbox.downloads as downloads
+    root = tmp_path / 'tools' / 'platform-tools'
+    root.mkdir(parents=True)
+    exe = 'adb.exe' if os.name == 'nt' else 'adb'
+    (root / exe).write_bytes(b'old')
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        archive.writestr('platform-tools/' + exe, b'new')
+    monkeypatch.setattr(downloads, 'data_dir', lambda: tmp_path)
+    monkeypatch.setattr(downloads, 'fetch', lambda *args, **kwargs: buffer.getvalue())
+    result = downloads.install_tool('adb', threading.Event(), lambda _: None)
+    assert Path(result).read_bytes() == b'new'
+    assert not (tmp_path / 'tools' / 'platform-tools.previous').exists()
+
+
+def test_invalid_tool_archive_keeps_existing_copy(monkeypatch, tmp_path):
+    import io
+    import quest_toolbox.downloads as downloads
+    root = tmp_path / 'tools' / 'platform-tools'
+    root.mkdir(parents=True)
+    exe = 'adb.exe' if os.name == 'nt' else 'adb'
+    (root / exe).write_bytes(b'old')
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        archive.writestr('unrelated.txt', 'wrong archive')
+    monkeypatch.setattr(downloads, 'data_dir', lambda: tmp_path)
+    monkeypatch.setattr(downloads, 'fetch', lambda *args, **kwargs: buffer.getvalue())
+    with pytest.raises(ToolboxError, match='не найден'):
+        downloads.install_tool('adb', threading.Event(), lambda _: None)
+    assert (root / exe).read_bytes() == b'old'

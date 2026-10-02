@@ -11,6 +11,7 @@ import argparse
 from pathlib import Path
 import shutil
 import zipfile
+import sys
 
 
 def extract(archive, destination):
@@ -27,7 +28,9 @@ def main():
         parser.add_argument('--'+arg,required=True,type=Path)
     args=parser.parse_args()
     repo=Path(__file__).resolve().parents[1]
-    root=args.output.resolve()/'QuestToolbox-0.1.0'
+    sys.path.insert(0, str(repo))
+    from quest_toolbox import __version__
+    root=args.output.resolve()/f'QuestToolbox-{__version__}'
     if root.exists():
         raise SystemExit('Output directory already exists; choose a fresh output directory.')
     root.mkdir(parents=True)
@@ -45,7 +48,7 @@ def main():
             dest=root/relative;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(path,dest)
     shutil.copy2(args.launcher,root/'QuestToolbox.exe')
     (root/'START-HERE.txt').write_text(
-        'QUEST TOOLBOX 0.1.0 PREVIEW\n\n'
+        f'QUEST TOOLBOX {__version__} PREVIEW\n\n'
         '1. Extract the entire ZIP. / Распакуйте весь архив.\n'
         '2. Run QuestToolbox.exe. / Запустите QuestToolbox.exe.\n'
         '3. Settings -> Download official ADB, or choose your existing adb.exe.\n'
@@ -54,13 +57,13 @@ def main():
         '   Включите режим разработчика и разрешите USB-отладку внутри шлема.\n\n'
         'Keep runtime and quest_toolbox folders beside the EXE. Python is included.\n'
         'Не переносите EXE отдельно от папок runtime и quest_toolbox. Python уже включён.\n\n'
-        'Preview: Windows and physical headset tests are still needed. See README.md.\n'
-        'Предварительная версия: требуется проверка на Windows и реальном шлеме.\n','utf-8-sig')
-    archive=args.output.resolve()/'QuestToolbox-0.1.0-Windows-x64.zip'
+        'Preview: physical headset tests are still needed. See README.md.\n'
+        'Предварительная версия: требуется проверка на реальном шлеме.\n','utf-8-sig')
+    archive=args.output.resolve()/f'QuestToolbox-{__version__}-Windows-x64.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for path in root.rglob('*'):
             if path.is_file():z.write(path,root.name+'/'+str(path.relative_to(root)))
-    source=args.output.resolve()/'QuestToolbox-0.1.0-source.zip'
+    source=args.output.resolve()/f'QuestToolbox-{__version__}-source.zip'
     with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for path in repo.rglob('*'):
             if path.is_file() and not any(part in {'.git','__pycache__','.pytest_cache','.venv','build','dist'} for part in path.relative_to(repo).parts):

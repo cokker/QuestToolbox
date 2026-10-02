@@ -9,6 +9,7 @@ import tempfile
 import urllib.request
 from urllib.parse import urlparse
 import zipfile
+from . import __version__
 from .core import ToolboxError, Cancelled, data_dir
 
 OFFICIAL_HOSTS = {'dl.google.com', 'api.github.com', 'github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}
@@ -17,7 +18,7 @@ OFFICIAL_HOSTS = {'dl.google.com', 'api.github.com', 'github.com', 'release-asse
 def fetch(url, cancel, progress, limit=250_000_000):
     if urlparse(url).scheme != 'https' or urlparse(url).hostname not in OFFICIAL_HOSTS:
         raise ToolboxError('Неофициальный адрес загрузки отклонён.')
-    request = urllib.request.Request(url, headers={'User-Agent': 'QuestToolbox/0.1.0', 'Accept': 'application/vnd.github+json' if 'api.github.com' in url else '*/*'})
+    request = urllib.request.Request(url, headers={'User-Agent': f'QuestToolbox/{__version__}', 'Accept': 'application/vnd.github+json' if 'api.github.com' in url else '*/*'})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             if urlparse(response.url).scheme != 'https' or urlparse(response.url).hostname not in OFFICIAL_HOSTS:
@@ -79,12 +80,33 @@ def install_tool(kind, cancel, progress):
         if len(found) != 1:
             raise ToolboxError('В архиве не найден однозначный исполняемый файл.')
         source = found[0].parent
-        destination = root / ('platform-tools' if kind == 'adb' else 'scrcpy')
-        if destination.exists():
-            raise ToolboxError('Инструмент уже установлен. Для обновления выберите другую локальную версию в настройках.')
-        shutil.move(str(source), destination)
         if os.name != 'nt':
-            (destination / exe).chmod(0o755)
+            found[0].chmod(0o755)
+        destination = root / ('platform-tools' if kind == 'adb' else 'scrcpy')
+        backup = root / (destination.name + '.previous')
+        if backup.exists():
+            raise ToolboxError(f'Найдена резервная копия {backup}. Проверьте её перед обновлением.')
+        if destination.exists():
+            try:
+                destination.rename(backup)
+            except OSError as e:
+                raise ToolboxError('Не удалось обновить инструмент. Закройте работающие ADB/scrcpy и повторите.\n' + str(e)) from e
+        try:
+            source.rename(destination)
+        except OSError as e:
+            if backup.exists():
+                try:
+                    backup.rename(destination)
+                except OSError as restore_error:
+                    raise ToolboxError(f'Обновление не удалось. Прежняя версия сохранена в {backup}; восстановите её вручную.\n{restore_error}') from e
+                raise ToolboxError('Не удалось обновить инструмент; прежняя версия восстановлена.\n' + str(e)) from e
+            raise ToolboxError('Не удалось установить инструмент.\n' + str(e)) from e
+        if backup.exists():
+            try:
+                shutil.rmtree(backup)
+            except OSError:
+                # Installation succeeded. Preserve the backup for manual cleanup.
+                pass
         return str(destination / exe)
 
 

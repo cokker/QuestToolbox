@@ -299,6 +299,7 @@ class Window(QMainWindow):
         self.app_filter.setPlaceholderText(self.t('Поиск по имени пакета…','Search package names…'))
         self.app_filter.textChanged.connect(self.filter_apps)
         self.system_apps = QCheckBox(self.t('Показывать системные приложения','Show system apps'))
+        self.system_apps.toggled.connect(self.system_apps_changed)
         layout.addLayout(self.row(self.app_filter,self.system_apps))
         self.app_table = QTableWidget(0,1)
         self.app_table.setHorizontalHeaderLabels([self.t('Пакет приложения','Application package')])
@@ -437,13 +438,13 @@ class Window(QMainWindow):
         box.addWidget(self.label('Android SDK Platform-Tools / ADB'))
         box.addWidget(self.adb_path)
         box.addLayout(self.row(self.button(self.t('Выбрать adb.exe','Choose adb.exe'),lambda:self.choose_tool('adb')),
-                               self.button(self.t('Скачать официальный ADB','Download official ADB'),lambda:self.download_tool('adb'))))
+                               self.button(self.t('Скачать / обновить ADB','Download / update ADB'),lambda:self.download_tool('adb'))))
         self.scrcpy_path = QLineEdit(self.settings.values.get('scrcpy',''))
         self.scrcpy_path.setPlaceholderText(self.t('Полный путь к scrcpy.exe','Full path to scrcpy.exe'))
         box.addWidget(self.label('scrcpy / Genymobile'))
         box.addWidget(self.scrcpy_path)
         box.addLayout(self.row(self.button(self.t('Выбрать scrcpy.exe','Choose scrcpy.exe'),lambda:self.choose_tool('scrcpy')),
-                               self.button(self.t('Скачать официальный scrcpy','Download official scrcpy'),lambda:self.download_tool('scrcpy'))))
+                               self.button(self.t('Скачать / обновить scrcpy','Download / update scrcpy'),lambda:self.download_tool('scrcpy'))))
         box.addWidget(self.button(self.t('Сохранить пути','Save tool paths'),self.save_tool_paths,True))
         layout.addWidget(card)
         card, box = self.card()
@@ -478,6 +479,18 @@ class Window(QMainWindow):
 
     def serial(self):
         return self.selector.currentData() or ''
+
+    def update_connection_badge(self):
+        device = next((d for d in self.devices if d.serial == self.serial()), None)
+        if not device:
+            label = self.t('Нет подключения', 'Disconnected')
+        elif device.state == 'unauthorized':
+            label = self.t('Разреши отладку в шлеме', 'Authorize in headset')
+        elif device.state != 'device':
+            label = self.t('Шлем не отвечает', 'Headset offline')
+        else:
+            label = 'Wi-Fi' if ':' in device.serial else 'USB'
+        self.connection_badge.setText(label)
 
     def adb(self, progress=None, require=True):
         serial = self.serial()
@@ -599,10 +612,11 @@ class Window(QMainWindow):
             if devices and (not quiet or self.snapshot_serial!=self.serial()):
                 if any(d.serial==self.serial() and d.state=='device' for d in devices):
                     QTimer.singleShot(0,self.read_snapshot)
-            self.connection_badge.setText(self.t('Нет подключения','Disconnected') if not devices else 'Wi-Fi' if ':' in self.serial() else 'USB')
+            self.update_connection_badge()
         self.run(self.t('Поиск устройств','Scanning devices'),lambda p:self.with_adb(adb,p,lambda a:a.devices()),got,quiet)
 
     def selected(self):
+        self.update_connection_badge()
         self.stop_log()
         self.stop_mirror()
         self.snapshot=None
@@ -746,6 +760,12 @@ class Window(QMainWindow):
                 self.app_table.setItem(i,0,QTableWidgetItem(name))
             self.filter_apps()
         self.operation(self.t('Список приложений','Loading apps'),lambda a:a.list_apps(system),got)
+
+    def system_apps_changed(self):
+        self.app_table.setRowCount(0)
+        self.apps_serial = ''
+        if any(d.serial == self.serial() and d.state == 'device' for d in self.devices):
+            self.load_apps()
 
     def filter_apps(self):
         needle=self.app_filter.text().lower()

@@ -1,7 +1,7 @@
 1 ICON "../docs/icon.ico"
 1 VERSIONINFO
-FILEVERSION 0,1,0,0
-PRODUCTVERSION 0,1,0,0
+FILEVERSION 0,1,1,0
+PRODUCTVERSION 0,1,1,0
 FILEOS 0x40004
 FILETYPE 0x1
 BEGIN
@@ -11,9 +11,9 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "COKKER"
       VALUE "FileDescription", "Quest Toolbox"
-      VALUE "FileVersion", "0.1.0 Preview"
+      VALUE "FileVersion", "0.1.1 Preview"
       VALUE "ProductName", "Quest Toolbox"
-      VALUE "ProductVersion", "0.1.0"
+      VALUE "ProductVersion", "0.1.1"
       VALUE "OriginalFilename", "QuestToolbox.exe"
     END
   END

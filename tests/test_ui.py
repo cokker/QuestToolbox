@@ -56,6 +56,24 @@ def test_selection_clears_previous_device_content(window):
     assert window.app_table.rowCount()==window.file_table.rowCount()==0
 
 
+def test_connection_status_and_system_filter(app, window):
+    window.devices = [Device('USB123', 'unauthorized', 'Quest 3')]
+    window.selector.clear()
+    window.selector.addItem('Quest 3', 'USB123')
+    window.update_connection_badge()
+    assert 'отладку' in window.connection_badge.text()
+    window.devices = [Device('USB123', 'device', 'Quest 3')]
+    window.update_connection_badge()
+    assert window.connection_badge.text() == 'USB'
+    calls = []
+    window.load_apps = lambda: calls.append(window.system_apps.isChecked())
+    window.app_table.setRowCount(2)
+    window.system_apps.setChecked(True)
+    app.processEvents()
+    assert calls == [True]
+    assert window.app_table.rowCount() == 0
+
+
 def test_background_job_finishes_on_ui(app,window):
     out=[]
     window.run('test',lambda progress:'result',out.append)
