@@ -589,6 +589,7 @@ class Window(QMainWindow):
         adb=self.adb(require=False)
         def got(devices):
             old=self.serial()
+            was_connected=any(d.serial==old and d.state=='device' for d in self.devices)
             self.devices=devices
             self.selector.blockSignals(True)
             self.selector.clear()
@@ -607,11 +608,11 @@ class Window(QMainWindow):
                 idx=next((i for i,d in enumerate(devices) if d.state=='device'),0)
                 self.selector.setCurrentIndex(idx)
             self.selector.blockSignals(False)
-            if self.serial()!=old or not devices:
+            is_connected=any(d.serial==self.serial() and d.state=='device' for d in devices)
+            if self.serial()!=old or not devices or (was_connected and not is_connected):
                 self.selected()
-            if devices and (not quiet or self.snapshot_serial!=self.serial()):
-                if any(d.serial==self.serial() and d.state=='device' for d in devices):
-                    QTimer.singleShot(0,self.read_snapshot)
+            if devices and is_connected and (not quiet or self.snapshot_serial!=self.serial()):
+                QTimer.singleShot(0,self.read_snapshot)
             self.update_connection_badge()
         self.run(self.t('Поиск устройств','Scanning devices'),lambda p:self.with_adb(adb,p,lambda a:a.devices()),got,quiet)
 

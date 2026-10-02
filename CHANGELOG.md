@@ -3,7 +3,8 @@
 ## 0.1.1 Preview — 2026-10-02
 
 The connection indicator now distinguishes an unauthorized or offline headset
-from an active USB/Wi-Fi session. Switching the system-app filter refreshes
+from an active USB/Wi-Fi session, and a lost connection clears stale device
+data. Switching the system-app filter refreshes
 the list and clears stale selection. Official ADB and scrcpy downloads can
 replace an existing managed copy; if installation fails, the previous copy is
 restored. Windows and local UI tests cover the changes. Physical headset

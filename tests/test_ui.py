@@ -74,6 +74,21 @@ def test_connection_status_and_system_filter(app, window):
     assert window.app_table.rowCount() == 0
 
 
+def test_lost_connection_clears_stale_device_data(window):
+    window.devices = [Device('USB123', 'device', 'Quest 3')]
+    window.selector.clear()
+    window.selector.addItem('Quest 3', 'USB123')
+    window.snapshot = {'model': 'Quest 3'}
+    window.snapshot_serial = 'USB123'
+    window.app_table.setRowCount(2)
+    window.run = lambda title, function, callback=None, quiet=False: callback(
+        [Device('USB123', 'offline', 'Quest 3')])
+    window.scan()
+    assert window.snapshot is None
+    assert window.app_table.rowCount() == 0
+    assert 'не отвечает' in window.connection_badge.text()
+
+
 def test_background_job_finishes_on_ui(app,window):
     out=[]
     window.run('test',lambda progress:'result',out.append)
