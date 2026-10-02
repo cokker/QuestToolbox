@@ -26,7 +26,15 @@ def test_all_pages_render_and_scroll(app,window,tmp_path):
         window.nav.setCurrentRow(i); app.processEvents()
         assert window.stack.currentIndex()==i
         page=window.stack.currentWidget()
-        assert page.widget().sizeHint().width()<=page.viewport().width()+25
+        # sizeHint is a preferred size, not a bound: wrapped text and Windows
+        # font metrics may legitimately report a larger preferred width.
+        # Check the actual laid-out content and scroll range instead.
+        proof=Path('smoke-output/layout')
+        proof.mkdir(parents=True,exist_ok=True)
+        window.grab().save(str(proof/f'narrow-page-{i}.png'))
+        actual=(page.widget().width(),page.viewport().width(),page.horizontalScrollBar().maximum())
+        assert actual[0]<=actual[1], (i,actual)
+        assert actual[2]==0, (i,actual)
     assert window.stack.widget(8).verticalScrollBar().maximum()>0
 
 

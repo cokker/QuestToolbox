@@ -23,7 +23,8 @@ def run_smoke(app, destination):
             app.processEvents()
             page=window.stack.currentWidget()
             assert window.stack.currentIndex()==index
-            assert page.widget().sizeHint().width()<=page.viewport().width()+25
+            assert page.widget().width()<=page.viewport().width(), index
+            assert page.horizontalScrollBar().maximum()==0, index
             image=window.grab()
             assert not image.isNull()
             assert image.save(str(target/f'page-{index}.png'))
