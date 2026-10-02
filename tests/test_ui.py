@@ -1,5 +1,7 @@
 import os
-os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
+import sys
+if sys.platform != 'win32':
+    os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from pathlib import Path
 import time
 import pytest

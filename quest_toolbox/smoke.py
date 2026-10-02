@@ -18,6 +18,8 @@ def run_smoke(app, destination):
         app.processEvents()
         assert window.isVisible()
         checks.append('Native Qt window opened')
+        assert window.model_label.fontMetrics().inFontUcs4(ord('Я')), 'Cyrillic font glyph missing'
+        checks.append('Cyrillic font glyph available')
         for index in range(window.stack.count()):
             window.nav.setCurrentRow(index)
             app.processEvents()
